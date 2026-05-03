@@ -22,8 +22,7 @@ string path = args[0];
 
 try
 {
-    using var reader = File.OpenText(path);
-    var totalSum = CommaSeparatedLines.TotalSumFromAllLines(reader);
+    var totalSum = await CommaSeparatedLines.TotalSumFromFileAsync(path);
     Console.WriteLine($"Total sum: {totalSum}");
     Environment.ExitCode = 0;
 }
