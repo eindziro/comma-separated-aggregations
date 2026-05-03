@@ -1,13 +1,24 @@
 using CsharpPhase1.Week1;
+using Microsoft.Extensions.Configuration;
 
+var configuration = new ConfigurationBuilder()
+    .SetBasePath(AppContext.BaseDirectory)
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .Build();
+
+var cliOptions = configuration.GetSection("Cli").Get<CliOptions>() ?? new CliOptions();
 
 if (args.Length == 0)
 {
-    Console.WriteLine("Usage: CsharpPhase1.Cli <file> | --demo");
-    Environment.ExitCode = 1;
-    return;
+    if (string.IsNullOrWhiteSpace(cliOptions.DefaultInputFile))
+    {
+        Console.WriteLine("Usage: CsharpPhase1.Cli <file> | --demo");
+        Console.WriteLine("Tip: set Cli:DefaultInputFile in appsettings.json to run without arguments.");
+        Environment.ExitCode = 1;
+        return;
+    }
 }
-if (args[0] == "--demo")
+if (args.Length > 0 && args[0] == "--demo")
 {
     Console.WriteLine("CsharpPhase1 — фаза 1 (консоль для быстрых проверок).");
     var sample = "1, 2, 3";
@@ -18,7 +29,17 @@ if (args[0] == "--demo")
     return;
 }
 
-string path = args[0];
+var path = args.Length > 0 ? args[0] : cliOptions.DefaultInputFile;
+if (string.IsNullOrWhiteSpace(path))
+{
+    Console.WriteLine("Usage: CsharpPhase1.Cli <file> | --demo");
+    Console.WriteLine("Tip: set Cli:DefaultInputFile in appsettings.json to run without arguments.");
+    Environment.ExitCode = 1;
+    return;
+}
+
+if (cliOptions.Verbose)
+    Console.Error.WriteLine($"Resolved input file: {path}");
 
 try
 {
@@ -45,6 +66,12 @@ catch (FormatException e)
 {
     Console.Error.WriteLine($"Invalid format: {path} {e.Message}");
     Environment.ExitCode = 3;
+}
+
+file class CliOptions
+{
+    public string? DefaultInputFile { get; set; }
+    public bool Verbose { get; set; }
 }
 
 

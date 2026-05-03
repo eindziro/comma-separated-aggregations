@@ -35,6 +35,13 @@ Sum all comma-separated integers across all lines in a file:
 dotnet run --project .\src\CsharpPhase1.Cli\CsharpPhase1.Cli.csproj -- .\path\to\input.txt
 ```
 
+### Configuration (`appsettings.json`)
+
+The CLI reads `src/CsharpPhase1.Cli/appsettings.json` (copied next to the built executable).
+
+- **`Cli:DefaultInputFile`**: if set, you can run the CLI **with no arguments** and it will read this path.
+- **`Cli:Verbose`**: if `true`, prints the resolved input file path to stderr.
+
 ### Input format
 
 - Each line is a comma-separated list of integers, e.g. `1, 2, 3`
