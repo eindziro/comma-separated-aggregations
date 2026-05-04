@@ -29,6 +29,60 @@ if (args.Length > 0 && args[0] == "--demo")
     return;
 }
 
+if(args.Length > 0 && args[0] == "--sum-url")
+{
+    if(args.Length < 2)
+    {
+        System.Console.WriteLine("Usage: CsharpPhase1.Cli --sum-url <url>");
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    var url = args[1];
+
+    // Таймаут на всю операцию (и скачивание, и парсинг).
+    using var cts = new CancellationTokenSource();
+    cts.CancelAfter(TimeSpan.FromSeconds(10));
+
+    try
+    {
+        using var http = new HttpClient();
+
+        // Скачиваем ответ по URL с учётом отмены/таймаута.
+        using var response = await http.GetAsync(url, cts.Token);
+
+        // Если сервер вернул 404/500 и т.п. — это не “валидный ввод”, выдаём ошибку.
+        if(!response.IsSuccessStatusCode)
+        {
+            Console.Error.WriteLine($"HTTP error: {(int)response.StatusCode} {response.ReasonPhrase}");
+            Environment.ExitCode = 4;
+            return;
+        }
+
+        // Тело ответа как текст.
+        var content = await response.Content.ReadAsStringAsync(cts.Token);
+
+        //обертка строки в поток для парсинга
+        using var reader = new StringReader(content);
+        var totalSum  = await CommaSeparatedLines.TotalSumFromAllLinesAsync(reader, cts.Token);
+        System.Console.WriteLine($"Total sum: {totalSum}");
+        Environment.ExitCode = 0;
+        return;
+    }
+    catch (OperationCanceledException)
+    {
+        Console.Error.WriteLine("Request cancelled (timeout or Ctrl+C).");
+        Environment.ExitCode = 5;
+        return;
+    }
+    catch (HttpRequestException e)
+    {
+        Console.Error.WriteLine($"HTTP request failed: {e.Message}");
+        Environment.ExitCode = 4;
+        return;
+    }
+}
+
 var path = args.Length > 0 ? args[0] : cliOptions.DefaultInputFile;
 if (string.IsNullOrWhiteSpace(path))
 {
