@@ -12,7 +12,7 @@ if (args.Length == 0)
 {
     if (string.IsNullOrWhiteSpace(cliOptions.DefaultInputFile))
     {
-        Console.WriteLine("Usage: CsharpPhase1.Cli <file> | --demo");
+        Console.WriteLine("Usage: CsharpPhase1.Cli <file> | --demo | --sum-url <url>");
         Console.WriteLine("Tip: set Cli:DefaultInputFile in appsettings.json to run without arguments.");
         Environment.ExitCode = 1;
         return;
@@ -29,11 +29,11 @@ if (args.Length > 0 && args[0] == "--demo")
     return;
 }
 
-if(args.Length > 0 && args[0] == "--sum-url")
+if (args.Length > 0 && args[0] == "--sum-url")
 {
-    if(args.Length < 2)
+    if (args.Length < 2)
     {
-        System.Console.WriteLine("Usage: CsharpPhase1.Cli --sum-url <url>");
+        Console.WriteLine("Usage: CsharpPhase1.Cli --sum-url <url>");
         Environment.ExitCode = 1;
         return;
     }
@@ -42,17 +42,19 @@ if(args.Length > 0 && args[0] == "--sum-url")
 
     // Таймаут на всю операцию (и скачивание, и парсинг).
     using var cts = new CancellationTokenSource();
-    cts.CancelAfter(TimeSpan.FromSeconds(10));
+    var timeoutMs = Math.Clamp(cliOptions.HttpTimeoutMs, 1, 300_000);
+    cts.CancelAfter(TimeSpan.FromMilliseconds(timeoutMs));
 
     try
     {
         using var http = new HttpClient();
+        http.Timeout = TimeSpan.FromMilliseconds(timeoutMs);
 
         // Скачиваем ответ по URL с учётом отмены/таймаута.
         using var response = await http.GetAsync(url, cts.Token);
 
         // Если сервер вернул 404/500 и т.п. — это не “валидный ввод”, выдаём ошибку.
-        if(!response.IsSuccessStatusCode)
+        if (!response.IsSuccessStatusCode)
         {
             Console.Error.WriteLine($"HTTP error: {(int)response.StatusCode} {response.ReasonPhrase}");
             Environment.ExitCode = 4;
@@ -64,8 +66,8 @@ if(args.Length > 0 && args[0] == "--sum-url")
 
         //обертка строки в поток для парсинга
         using var reader = new StringReader(content);
-        var totalSum  = await CommaSeparatedLines.TotalSumFromAllLinesAsync(reader, cts.Token);
-        System.Console.WriteLine($"Total sum: {totalSum}");
+        var totalSum = await CommaSeparatedLines.TotalSumFromAllLinesAsync(reader, cts.Token);
+        Console.WriteLine($"Total sum: {totalSum}");
         Environment.ExitCode = 0;
         return;
     }
@@ -81,12 +83,18 @@ if(args.Length > 0 && args[0] == "--sum-url")
         Environment.ExitCode = 4;
         return;
     }
+    catch (FormatException e)
+    {
+        Console.Error.WriteLine($"Invalid format from URL: {url} {e.Message}");
+        Environment.ExitCode = 3;
+        return;
+    }
 }
 
 var path = args.Length > 0 ? args[0] : cliOptions.DefaultInputFile;
 if (string.IsNullOrWhiteSpace(path))
 {
-    Console.WriteLine("Usage: CsharpPhase1.Cli <file> | --demo");
+    Console.WriteLine("Usage: CsharpPhase1.Cli <file> | --demo | --sum-url <url>");
     Console.WriteLine("Tip: set Cli:DefaultInputFile in appsettings.json to run without arguments.");
     Environment.ExitCode = 1;
     return;
@@ -126,6 +134,7 @@ file class CliOptions
 {
     public string? DefaultInputFile { get; set; }
     public bool Verbose { get; set; }
+    public int HttpTimeoutMs { get; set; } = 10_000;
 }
 
 
